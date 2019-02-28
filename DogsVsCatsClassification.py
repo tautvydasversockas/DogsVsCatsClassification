@@ -8,7 +8,7 @@ from keras.preprocessing.image import ImageDataGenerator
 
 base_data_dir = '/content/drive/My Drive/Keras/kaggle_original_data/train'
 base_dir = '/content/drive/My Drive/Keras/dogs_vs_cats'
-model_path = '/content/drive/My Drive/Keras/dogs_vs_cats/model_1.h5'
+model_path = '/content/drive/My Drive/Keras/dogs_vs_cats/model_2.h5'
 
 train_dir = os.path.join(base_dir, 'train')
 validation_dir = os.path.join(base_dir, 'validation')
@@ -99,6 +99,7 @@ def build_model():
     model.add(layers.Conv2D(128, (3, 3), activation='relu'))
     model.add(layers.MaxPooling2D((2,2 )))
     model.add(layers.Flatten())
+    model.add(layers.Dropout(0.5))
     model.add(layers.Dense(512, activation='relu'))
     model.add(layers.Dense(1, activation='sigmoid'))
 
@@ -107,13 +108,21 @@ def build_model():
                   metrics=['acc'])
     return model
 
-train_datagen = ImageDataGenerator(rescale=1./255)
+train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=40,
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True)
+
 validation_datagen = ImageDataGenerator(rescale=1./255)
 
 train_generator = train_datagen.flow_from_directory(
     train_dir,
     target_size=(150, 150),
-    batch_size=20,
+    batch_size=32,
     class_mode='binary')
 
 validation_generator = validation_datagen.flow_from_directory(
@@ -128,7 +137,7 @@ print(model.summary())
 history = model.fit_generator(
     train_generator,
     steps_per_epoch=100,
-    epochs=30,
+    epochs=100,
     validation_data=validation_generator,
     validation_steps=50)
 
