@@ -89,23 +89,6 @@ def display_results(history):
 
     plt.show()
 
-def build_model():
-    conv_base = VGG16(weights='imagenet',
-                      include_top=False,
-                      input_shape=(150,150,3))
-    conv_base.trainable = False
-
-    model = models.Sequential()
-    model.add(conv_base)
-    model.add(layers.Flatten())
-    model.add(layers.Dense(216, activation='relu'))
-    model.add(layers.Dense(1, activation='sigmoid'))
-
-    model.compile(loss='binary_crossentropy',
-                  optimizer=optimizers.RMSprop(lr=1e-4),
-                  metrics=['acc'])
-    return model
-
 train_datagen = ImageDataGenerator(
     rescale=1./255,
     rotation_range=40,
@@ -116,6 +99,7 @@ train_datagen = ImageDataGenerator(
     horizontal_flip=True)
 
 validation_datagen = ImageDataGenerator(rescale=1./255)
+test_datagen = ImageDataGenerator(rescale=1./255)
 
 train_generator = train_datagen.flow_from_directory(
     train_dir,
@@ -129,15 +113,60 @@ validation_generator = validation_datagen.flow_from_directory(
     batch_size=20,
     class_mode='binary')
 
-model = build_model()
+test_generator = test_datagen.flow_from_directory(
+    test_dir,
+    target_size=(150, 150),
+    batch_size=20,
+    class_mode='binary')
+
+conv_base = VGG16(weights='imagenet',
+                      include_top=False,
+                      input_shape=(150,150,3))
+conv_base.trainable = False
+
+model = models.Sequential()
+model.add(conv_base)
+model.add(layers.Flatten())
+model.add(layers.Dense(216, activation='relu'))
+model.add(layers.Dense(1, activation='sigmoid'))
+
+model.compile(loss='binary_crossentropy',
+                optimizer=optimizers.RMSprop(lr=1e-4),
+                metrics=['acc'])
+
 print(model.summary())
 
-history = model.fit_generator(
+model.fit_generator(
     train_generator,
     steps_per_epoch=100,
     epochs=30,
     validation_data=validation_generator,
     validation_steps=50)
 
+conv_base.trainable = True
+set_trainable = False
+
+for layer in conv_base.layers:
+    if layer.name == 'block5_conv1':
+        set_trainable = True
+    if set_trainable:
+        layer.trainable = True
+    else:
+        layer.trainable = False
+
+model.compile(loss='binary_crossentropy',
+              optimizer=optimizers.RMSprop(lr=1e-5),
+              metrics=['acc'])
+
+history = model.fit_generator(
+    train_generator,
+    steps_per_epoch=100,
+    epochs=100,
+    validation_data=validation_generator,
+    validation_steps=50)
+
 model.save(model_path)
 display_results(history)
+
+test_loss, test_acc = model.evaluate_generator(test_generator, steps=50)
+print('test acc:', test_acc)
